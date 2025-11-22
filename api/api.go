@@ -84,26 +84,27 @@ func (app *APP) jsonResponse(w http.ResponseWriter, status int, data any) error 
 }
 
 type GetPostPayload struct {
-	User    uint32 `json:"user"`
-	Content string `json:"content" validate:"required,max=1000"`
+	UserId  uint32   `json:"user"`
+	PostIds []uint32 `json:"ids"`
 }
 
 func (app *APP) getHomePostHandler(w http.ResponseWriter, r *http.Request) {
-	idParam, err := strconv.Atoi(chi.URLParam(r, "userID"))
+	userID, err := strconv.Atoi(chi.URLParam(r, "userID"))
 	if err != nil {
 		log.Fatal(err)
 		return
 	}
 
-	posts, err := app.feed.Posts.GetHomeFeed(uint32(idParam))
+	posts, err := app.feed.Posts.GetHomeFeed(uint32(userID))
 	if err != nil {
 		log.Fatal(err)
 		return
 	}
 
-	ret := make([]GetPostPayload, len(posts))
+	postIDs := make([]uint32, len(posts))
 	for i, post := range posts {
-		ret[i] = GetPostPayload{User: post.Author, Content: post.Content}
+		postIDs[i] = post.ID
 	}
+	ret := GetPostPayload{UserId: uint32(userID), PostIds: postIDs}
 	app.jsonResponse(w, 200, ret)
 }
