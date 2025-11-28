@@ -1,12 +1,14 @@
 package main
 
 import (
+	"context"
 	"encoding/json"
 	"log"
 	"net/http"
 	"strconv"
 	"time"
 
+	"github.com/smks17/feed_service/lib/cache"
 	"github.com/smks17/feed_service/lib/env"
 	"github.com/smks17/feed_service/lib/feed"
 
@@ -30,14 +32,15 @@ func setConfig() APPConfig {
 }
 
 type APP struct {
-	config APPConfig
-	feed   *feed.Feed
+	ctx       context.Context
+	config    APPConfig
+	feed      *feed.Feed
+	feedCache *cache.FeedCache
 	// httServer *http.Server
 }
 
-func newApp(feed *feed.Feed, config APPConfig) *APP {
-
-	return &APP{config: config, feed: feed}
+func newApp(ctx context.Context, feed *feed.Feed, config APPConfig, feedCache *cache.FeedCache) *APP {
+	return &APP{ctx: ctx, config: config, feed: feed, feedCache: feedCache}
 }
 
 func (app *APP) mount() *chi.Mux {
@@ -95,10 +98,28 @@ func (app *APP) getHomePostHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	posts, err := app.feed.Posts.GetHomeFeed(uint32(userID))
+	var posts []feed.Post
+
+	cachePosts, err := app.feedCache.HomeFeed.Get(app.ctx, uint32(userID))
 	if err != nil {
-		log.Fatal(err)
+		log.Fatal("Error in get feeds of user %d from cache: %v", userID, err)
 		return
+	} else if cachePosts != nil {
+		posts = cachePosts
+		log.Println("Hit cache for for user ", userID)
+	} else {
+		dbPosts, err := app.feed.Posts.GetHomeFeed(uint32(userID))
+		if err != nil {
+			log.Fatal(err)
+			return
+		}
+		err = app.feedCache.HomeFeed.Set(app.ctx, uint32(userID), dbPosts)
+		if err != nil {
+			log.Fatal("Error in set feeds of user %d from cache: %v", userID, err)
+			return
+		}
+		log.Println("Set from cache for user ", userID)
+		posts = dbPosts
 	}
 
 	postIDs := make([]uint32, len(posts))
