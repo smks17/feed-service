@@ -12,6 +12,7 @@ import (
 	"github.com/smks17/feed_service/lib/env"
 	"github.com/smks17/feed_service/lib/feed"
 
+	"github.com/go-chi/chi/middleware"
 	"github.com/go-chi/chi/v5"
 )
 
@@ -45,6 +46,10 @@ func newApp(ctx context.Context, feed *feed.Feed, config APPConfig, feedCache *c
 
 func (app *APP) mount() *chi.Mux {
 	route := chi.NewRouter()
+
+	route.Use(middleware.Logger)
+	route.Use(middleware.Recoverer)
+	route.Use(middleware.Timeout(10 * time.Second))
 
 	route.Route("/feed", func(r chi.Router) {
 		r.Route("/home", func(r chi.Router) {
