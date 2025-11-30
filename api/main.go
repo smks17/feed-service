@@ -21,13 +21,17 @@ func main() {
 
 	ctx := context.Background()
 
-	db, err := db.Connect("sqlite3", "/home/mahdi/Documents/code/switter/db.sqlite3")
+	db, err := db.Connect("sqlite3", config.db.addr)
 	if err != nil {
 		return
 	}
 	defer db.Close()
 
-	rdb := cache.NewRedisClient("localhost:6379", "", 0)
+	rdb := cache.NewRedisClient(
+		fmt.Sprintf("%s://%s:%d", config.redis.host, config.redis.addr, config.redis.port),
+		config.redis.password,
+		config.redis.db,
+	)
 	defer rdb.Close()
 	status, err := rdb.Ping(ctx).Result()
 	if err != nil {

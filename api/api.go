@@ -17,18 +17,34 @@ import (
 )
 
 type APPConfig struct {
-	addr string
-	db   DBConfig
+	addr  string
+	db    DBConfig
+	redis RedisConfig
 }
 
 type DBConfig struct {
 	addr string
 }
 
+type RedisConfig struct {
+	host     string
+	addr     string
+	port     int8
+	password string
+	db       int
+}
+
 func setConfig() APPConfig {
 	return APPConfig{
 		addr: env.GetEnv("ADDR", "127.0.0.1:8080"),
-		db:   DBConfig{addr: env.GetEnv("DB_PATH", "/db.sqlite3")},
+		db:   DBConfig{addr: env.GetEnv("DB_PATH", "./db.sqlite3")},
+		redis: RedisConfig{
+			host:     env.GetEnv("REDIS_HOST", "redis"),
+			addr:     env.GetEnv("REDIS_ADDR", "127.0.0.1"),
+			port:     int8(env.GetInt("REDIS_PORT", 6379)),
+			password: env.GetEnv("REDIS_PASSWORD", ""),
+			db:       env.GetInt("REDIS_DB", 6379),
+		},
 	}
 }
 
