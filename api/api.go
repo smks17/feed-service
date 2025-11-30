@@ -118,12 +118,15 @@ func (app *APP) getHomePostHandler(w http.ResponseWriter, r *http.Request) {
 			log.Fatal(err)
 			return
 		}
-		err = app.feedCache.HomeFeed.Set(app.ctx, uint32(userID), dbPosts)
-		if err != nil {
-			log.Fatal("Error in set feeds of user %d from cache: %v", userID, err)
-			return
-		}
-		log.Println("Set from cache for user ", userID)
+		// set cache in background
+		go func() {
+			err = app.feedCache.HomeFeed.Set(app.ctx, uint32(userID), dbPosts)
+			if err != nil {
+				log.Fatal("Error in set feeds of user %d from cache: %v", userID, err)
+				return
+			}
+			log.Println("Set from cache for user ", userID)
+		}()
 		posts = dbPosts
 	}
 
