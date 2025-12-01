@@ -1,4 +1,4 @@
-module github.com/smks17/feed_service
+module github.com/smks17/feed-service
 
 go 1.25.3
 

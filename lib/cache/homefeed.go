@@ -7,7 +7,7 @@ import (
 	"time"
 
 	"github.com/go-redis/redis/v8"
-	"github.com/smks17/feed_service/lib/feed"
+	"github.com/smks17/feed-service/lib/feed"
 )
 
 const ExpirationHomeFeedCache = time.Minute

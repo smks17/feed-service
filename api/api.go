@@ -8,9 +8,9 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/smks17/feed_service/lib/cache"
-	"github.com/smks17/feed_service/lib/env"
-	"github.com/smks17/feed_service/lib/feed"
+	"github.com/smks17/feed-service/lib/cache"
+	"github.com/smks17/feed-service/lib/env"
+	"github.com/smks17/feed-service/lib/feed"
 
 	"github.com/go-chi/chi/middleware"
 	"github.com/go-chi/chi/v5"

@@ -7,9 +7,9 @@ import (
 
 	"github.com/joho/godotenv"
 
-	"github.com/smks17/feed_service/lib/cache"
-	"github.com/smks17/feed_service/lib/db"
-	"github.com/smks17/feed_service/lib/feed"
+	"github.com/smks17/feed-service/lib/cache"
+	"github.com/smks17/feed-service/lib/db"
+	"github.com/smks17/feed-service/lib/feed"
 )
 
 func main() {
