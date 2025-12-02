@@ -1,9 +1,11 @@
 package feed
 
 import (
-	"database/sql"
+	"context"
 	"log"
 	"time"
+
+	"github.com/jackc/pgx/v5"
 )
 
 type Post struct {
@@ -14,10 +16,10 @@ type Post struct {
 }
 
 type PostStore struct {
-	db *sql.DB
+	db *pgx.Conn
 }
 
-func (ps *PostStore) GetHomeFeed(userId uint32) ([]Post, error) {
+func (ps *PostStore) GetHomeFeed(ctx context.Context, userId uint32) ([]Post, error) {
 	query := `
         SELECT p.id, p.content, p.created_at, p.author_id
         FROM posts_post p
@@ -27,7 +29,7 @@ func (ps *PostStore) GetHomeFeed(userId uint32) ([]Post, error) {
         ORDER BY p.created_at DESC;
     `
 
-	rows, err := ps.db.Query(query, userId, userId)
+	rows, err := ps.db.Query(ctx, query, userId, userId)
 	if err != nil {
 		log.Printf("Error in get feeds of user %d: %v", userId, err)
 		return nil, err

@@ -1,24 +1,26 @@
 package db
 
 import (
-	"database/sql"
+	"context"
+	"fmt"
 	"log"
 
-	_ "github.com/mattn/go-sqlite3"
+	"github.com/jackc/pgx/v5"
 )
 
-func Connect(driverName string, addr string) (*sql.DB, error) {
-	db, err := sql.Open(driverName, addr)
+func Connect(ctx context.Context, host string, addr string, dbName string) (*pgx.Conn, error) {
+	url := fmt.Sprintf("%s://%s/%s", host, addr, dbName)
+	conn, err := pgx.Connect(context.Background(), url)
 	if err != nil {
-		log.Fatal("Can not connect to database", err)
+		log.Println("Unable to connect to database: %v\n", err)
 		return nil, err
 	}
 
-	if err := db.Ping(); err != nil {
+	if err := conn.Ping(ctx); err != nil {
 		log.Fatal("Can not ping database", err)
 		return nil, err
 	}
 	log.Print("Connect to database")
 
-	return db, nil
+	return conn, nil
 }

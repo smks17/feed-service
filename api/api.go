@@ -23,7 +23,9 @@ type APPConfig struct {
 }
 
 type DBConfig struct {
-	addr string
+	addr   string
+	host   string
+	dbName string
 }
 
 type RedisConfig struct {
@@ -37,13 +39,17 @@ type RedisConfig struct {
 func setConfig() APPConfig {
 	return APPConfig{
 		addr: env.GetEnv("ADDR", "127.0.0.1:8080"),
-		db:   DBConfig{addr: env.GetEnv("DB_PATH", "./db.sqlite3")},
+		db: DBConfig{
+			host:   env.GetEnv("POSTGRES_HOST", "postgres"),
+			addr:   env.GetEnv("POSTGRES_URL", "127.0.0.1:5432"),
+			dbName: env.GetEnv("POSTGRES_DB", "switter_db"),
+		},
 		redis: RedisConfig{
-			host:     env.GetEnv("REDIS_HOST", "redis"),
+			host:     env.GetEnv("REDIS_HOSTNAME", "redis"),
 			addr:     env.GetEnv("REDIS_ADDR", "127.0.0.1"),
 			port:     int8(env.GetInt("REDIS_PORT", 6379)),
 			password: env.GetEnv("REDIS_PASSWORD", ""),
-			db:       env.GetInt("REDIS_DB", 6379),
+			db:       env.GetInt("FEED_SERVICE_REDIS_DB", 0),
 		},
 	}
 }
@@ -129,7 +135,7 @@ func (app *APP) getHomePostHandler(w http.ResponseWriter, r *http.Request) {
 		posts = cachePosts
 		log.Println("Hit cache for for user ", userID)
 	} else {
-		dbPosts, err := app.feed.Posts.GetHomeFeed(uint32(userID))
+		dbPosts, err := app.feed.Posts.GetHomeFeed(app.ctx, uint32(userID))
 		if err != nil {
 			log.Fatal(err)
 			return

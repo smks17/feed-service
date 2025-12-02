@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"log"
+	"os"
 
 	"github.com/joho/godotenv"
 
@@ -15,17 +16,17 @@ import (
 func main() {
 	err := godotenv.Load(".env")
 	if err != nil {
-		log.Fatalf("Error loading .env file: %s", err)
+		log.Println("Error loading .env file: %s", err)
 	}
 	config := setConfig()
 
 	ctx := context.Background()
 
-	db, err := db.Connect("sqlite3", config.db.addr)
+	db, err := db.Connect(ctx, config.db.host, config.db.addr, config.db.dbName)
 	if err != nil {
-		return
+		os.Exit(1)
 	}
-	defer db.Close()
+	defer db.Close(ctx)
 
 	rdb := cache.NewRedisClient(
 		fmt.Sprintf("%s://%s:%d", config.redis.host, config.redis.addr, config.redis.port),
