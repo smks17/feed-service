@@ -3,9 +3,14 @@ package cache
 import "github.com/go-redis/redis/v8"
 
 func NewRedisClient(addr, password string, db int) *redis.Client {
-	return redis.NewClient(&redis.Options{
-		Addr:     addr,
-		Password: password,
-		DB:       db,
-	})
+	opts := &redis.Options{
+		Addr: addr,
+		DB:   db,
+	}
+
+	if password != "" {
+		opts.Password = password
+	}
+
+	return redis.NewClient(opts)
 }

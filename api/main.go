@@ -22,21 +22,21 @@ func main() {
 
 	ctx := context.Background()
 
-	db, err := db.Connect(ctx, config.db.host, config.db.addr, config.db.dbName)
+	db, err := db.Connect(ctx, config.db.addr)
 	if err != nil {
 		os.Exit(1)
 	}
 	defer db.Close(ctx)
 
 	rdb := cache.NewRedisClient(
-		fmt.Sprintf("%s://%s:%d", config.redis.host, config.redis.addr, config.redis.port),
+		fmt.Sprintf("%s:%d", config.redis.addr, config.redis.port),
 		config.redis.password,
 		config.redis.db,
 	)
 	defer rdb.Close()
 	status, err := rdb.Ping(ctx).Result()
 	if err != nil {
-		log.Fatalln("Redis connection was refused")
+		log.Fatalln("Redis connection was refused: ", err)
 	}
 	fmt.Println("Stats of redis: ", status)
 

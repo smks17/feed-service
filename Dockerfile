@@ -15,4 +15,5 @@ RUN ls -ltrh
 ENV PORT=8080
 EXPOSE 8080
 RUN chmod +x /app/main
-CMD ["/app/main"]
+
+ENTRYPOINT ["./main"]

@@ -23,15 +23,12 @@ type APPConfig struct {
 }
 
 type DBConfig struct {
-	addr   string
-	host   string
-	dbName string
+	addr string
 }
 
 type RedisConfig struct {
-	host     string
 	addr     string
-	port     int8
+	port     int
 	password string
 	db       int
 }
@@ -40,14 +37,11 @@ func setConfig() APPConfig {
 	return APPConfig{
 		addr: env.GetEnv("ADDR", "127.0.0.1:8080"),
 		db: DBConfig{
-			host:   env.GetEnv("POSTGRES_HOST", "postgres"),
-			addr:   env.GetEnv("POSTGRES_URL", "127.0.0.1:5432"),
-			dbName: env.GetEnv("POSTGRES_DB", "switter_db"),
+			addr: env.GetEnv("POSTGRES_URL", "127.0.0.1:5432"),
 		},
 		redis: RedisConfig{
-			host:     env.GetEnv("REDIS_HOSTNAME", "redis"),
-			addr:     env.GetEnv("REDIS_ADDR", "127.0.0.1"),
-			port:     int8(env.GetInt("REDIS_PORT", 6379)),
+			addr:     env.GetEnv("REDIS_HOSTNAME", "127.0.0.1"),
+			port:     env.GetInt("REDIS_PORT", 6379),
 			password: env.GetEnv("REDIS_PASSWORD", ""),
 			db:       env.GetInt("FEED_SERVICE_REDIS_DB", 0),
 		},
