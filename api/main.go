@@ -46,5 +46,6 @@ func main() {
 
 	app := newApp(ctx, &feed, config, &feedCache)
 	router := app.mount()
+	go app.UpdatePopularFeedCache() // update popular feed cache in background
 	log.Fatal(app.run(router))
 }

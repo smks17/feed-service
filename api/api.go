@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"log"
 	"net/http"
 	"strconv"
@@ -71,6 +72,7 @@ func (app *APP) mount() *chi.Mux {
 		r.Route("/home", func(r chi.Router) {
 			r.Get("/{userID}", app.getHomePostHandler)
 		})
+		r.Get("/popular", app.getPopularPostHandler)
 	})
 
 	return route
@@ -105,6 +107,40 @@ func (app *APP) jsonResponse(w http.ResponseWriter, status int, data any) error 
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(status)
 	return json.NewEncoder(w).Encode(data)
+}
+
+func (app *APP) UpdatePopularFeedCache() {
+	if err := app.updatePopularFeed(); err != nil {
+		log.Println("Error updating popular feed:", err)
+	}
+
+	ticker := time.NewTicker(1 * time.Hour)
+	defer ticker.Stop()
+
+	for {
+		select {
+		case <-ticker.C:
+			if err := app.updatePopularFeed(); err != nil {
+				log.Println("Error updating popular feed:", err)
+			}
+		case <-app.ctx.Done():
+			fmt.Println("Stop signal received, exiting goroutine.")
+			return
+		}
+	}
+}
+
+func (app *APP) updatePopularFeed() error {
+	dbPosts, err := app.feed.Posts.GetPopularFeed(app.ctx)
+	if err != nil {
+		return err
+	}
+	err = app.feedCache.PopularFeed.Set(app.ctx, dbPosts)
+	if err != nil {
+		return err
+	}
+	fmt.Println("Set popular feed to cache")
+	return nil
 }
 
 type GetPostPayload struct {
@@ -152,4 +188,26 @@ func (app *APP) getHomePostHandler(w http.ResponseWriter, r *http.Request) {
 	}
 	ret := GetPostPayload{UserId: uint32(userID), PostIds: postIDs}
 	app.jsonResponse(w, 200, ret)
+}
+
+type GetPopularPostPayload struct {
+	PostIds []uint32 `json:"ids"`
+}
+
+func (app *APP) getPopularPostHandler(w http.ResponseWriter, r *http.Request) {
+	cachePosts, err := app.feedCache.PopularFeed.Get(app.ctx)
+	// previously we cached popular feed periodically in background
+	if err != nil {
+		log.Fatal("Error in get popular feed from cache: ", err)
+		return
+	} else if cachePosts != nil {
+		postIDs := make([]uint32, len(cachePosts))
+		for i, post := range cachePosts {
+			postIDs[i] = post.ID
+		}
+		ret := GetPopularPostPayload{PostIds: postIDs}
+		app.jsonResponse(w, 200, ret)
+	} else {
+		log.Fatal("Error: cache does not exist")
+	}
 }

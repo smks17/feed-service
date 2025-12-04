@@ -50,3 +50,36 @@ func (ps *PostStore) GetHomeFeed(ctx context.Context, userId uint32) ([]Post, er
 
 	return posts, nil
 }
+
+func (ps *PostStore) GetPopularFeed(ctx context.Context) ([]Post, error) {
+	query := `
+		SELECT p.id, p.content, p.created_at, p.author_id
+		FROM posts_post AS p
+		LEFT JOIN interactions_like AS l
+			ON l.post_id = p.id
+		WHERE p.created_at >= NOW() - INTERVAL '3 days'
+		GROUP BY p.id, p.content, p.created_at, p.author_id
+		ORDER BY COUNT(l.id) DESC LIMIT 20;
+	`
+
+	rows, err := ps.db.Query(ctx, query)
+	if err != nil {
+		log.Printf("Error in get popular feed: %v", err)
+		return nil, err
+	}
+	defer rows.Close()
+
+	var posts []Post
+	for rows.Next() {
+		var p Post
+		if err := rows.Scan(&p.ID, &p.Content, &p.CreatedAt, &p.Author); err != nil {
+			return nil, err
+		}
+		posts = append(posts, p)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+
+	return posts, nil
+}
