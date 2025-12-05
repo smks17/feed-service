@@ -72,7 +72,11 @@ func (app *APP) mount() *chi.Mux {
 		r.Route("/home", func(r chi.Router) {
 			r.Get("/{userID}", app.getHomePostHandler)
 		})
+		r.Route("/explore", func(r chi.Router) {
+			r.Get("/{userID}", app.getExplorePostHandler)
+		})
 		r.Get("/popular", app.getPopularPostHandler)
+		r.Get("/random", app.getRandomPostHandler)
 	})
 
 	return route
@@ -190,8 +194,46 @@ func (app *APP) getHomePostHandler(w http.ResponseWriter, r *http.Request) {
 	app.jsonResponse(w, 200, ret)
 }
 
-type GetPopularPostPayload struct {
-	PostIds []uint32 `json:"ids"`
+func (app *APP) getExplorePostHandler(w http.ResponseWriter, r *http.Request) {
+	userID, err := strconv.Atoi(chi.URLParam(r, "userID"))
+	if err != nil {
+		log.Fatal(err)
+		return
+	}
+
+	var posts []feed.Post
+
+	cachePosts, err := app.feedCache.ExploreFeed.Get(app.ctx, uint32(userID))
+	if err != nil {
+		log.Fatal("Error in get feeds of user %d from cache: %v", userID, err)
+		return
+	} else if cachePosts != nil {
+		posts = cachePosts
+		log.Println("Hit cache for for user ", userID)
+	} else {
+		dbPosts, err := app.feed.Posts.GetExploreFeed(app.ctx, uint32(userID))
+		if err != nil {
+			log.Fatal(err)
+			return
+		}
+		// set cache in background
+		go func() {
+			err = app.feedCache.ExploreFeed.Set(app.ctx, uint32(userID), dbPosts)
+			if err != nil {
+				log.Fatal("Error in set feeds of user %d from cache: %v", userID, err)
+				return
+			}
+			log.Println("Set from cache for user ", userID)
+		}()
+		posts = dbPosts
+	}
+
+	postIDs := make([]uint32, len(posts))
+	for i, post := range posts {
+		postIDs[i] = post.ID
+	}
+	ret := GetPostPayload{UserId: uint32(userID), PostIds: postIDs}
+	app.jsonResponse(w, 200, ret)
 }
 
 func (app *APP) getPopularPostHandler(w http.ResponseWriter, r *http.Request) {
@@ -205,9 +247,24 @@ func (app *APP) getPopularPostHandler(w http.ResponseWriter, r *http.Request) {
 		for i, post := range cachePosts {
 			postIDs[i] = post.ID
 		}
-		ret := GetPopularPostPayload{PostIds: postIDs}
+		ret := GetPostPayload{PostIds: postIDs, UserId: 0}
 		app.jsonResponse(w, 200, ret)
 	} else {
 		log.Fatal("Error: cache does not exist")
 	}
+}
+
+func (app *APP) getRandomPostHandler(w http.ResponseWriter, r *http.Request) {
+	posts, err := app.feed.Posts.GetRandomFeed(app.ctx)
+	if err != nil {
+		log.Fatal(err)
+		return
+	}
+
+	postIDs := make([]uint32, len(posts))
+	for i, post := range posts {
+		postIDs[i] = post.ID
+	}
+	ret := GetPostPayload{UserId: 0, PostIds: postIDs}
+	app.jsonResponse(w, 200, ret)
 }

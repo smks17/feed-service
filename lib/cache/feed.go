@@ -18,11 +18,17 @@ type FeedCache struct {
 		Get(ctx context.Context) ([]feed.Post, error)
 		Delete(ctx context.Context)
 	}
+	ExploreFeed interface {
+		Set(ctx context.Context, userId uint32, feed []feed.Post) error
+		Get(ctx context.Context, userId uint32) ([]feed.Post, error)
+		Delete(ctx context.Context, userId uint32)
+	}
 }
 
 func NewFeedCache(rdb *redis.Client) FeedCache {
 	return FeedCache{
 		HomeFeed:    &HomeFeedCache{rdb: rdb},
 		PopularFeed: &PopularFeedCache{rdb: rdb},
+		ExploreFeed: &ExploreFeedCache{rdb: rdb},
 	}
 }

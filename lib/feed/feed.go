@@ -9,6 +9,8 @@ import (
 type Feed struct {
 	Posts interface {
 		GetHomeFeed(ctx context.Context, userId uint32) ([]Post, error)
+		GetExploreFeed(ctx context.Context, userId uint32) ([]Post, error)
+		GetRandomFeed(ctx context.Context) ([]Post, error)
 		GetPopularFeed(ctx context.Context) ([]Post, error)
 	}
 }
