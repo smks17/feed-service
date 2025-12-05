@@ -211,7 +211,7 @@ func (app *APP) getExplorePostHandler(w http.ResponseWriter, r *http.Request) {
 		posts = cachePosts
 		log.Println("Hit cache for for user ", userID)
 	} else {
-		dbPosts, err := app.feed.Posts.GetExploreFeed(app.ctx, uint32(userID))
+		dbPosts, err := app.feed.Posts.GetExploreFeed(app.ctx, uint32(userID), app.feedCache.PopularFeed.Get)
 		if err != nil {
 			log.Fatal(err)
 			return

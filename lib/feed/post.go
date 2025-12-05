@@ -126,7 +126,7 @@ func pickRandom[T any](list []T, n int) []T {
 	return shuffled[:n]
 }
 
-func (ps *PostStore) GetExploreFeed(ctx context.Context, userId uint32) ([]Post, error) {
+func (ps *PostStore) GetExploreFeed(ctx context.Context, userId uint32, getPopularFeedFromCache feedCacheType) ([]Post, error) {
 	var posts []Post
 
 	var homePosts, popularPosts, randomPosts []Post
@@ -143,7 +143,7 @@ func (ps *PostStore) GetExploreFeed(ctx context.Context, userId uint32) ([]Post,
 
 	go func() {
 		defer wg.Done()
-		popularPosts, err2 = ps.GetPopularFeed(ctx)
+		popularPosts, err2 = getPopularFeedFromCache(ctx)
 		homePosts = pickRandom(homePosts, 10)
 	}()
 
