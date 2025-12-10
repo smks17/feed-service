@@ -1,0 +1,9 @@
+build/
+
+Dockerfile*
+.dockerignore
+
+*.sqlite
+*.sqlite3
+
+README.md
