@@ -255,7 +255,7 @@ func (app *APP) getPopularPostHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func (app *APP) getRandomPostHandler(w http.ResponseWriter, r *http.Request) {
-	posts, err := app.feed.Posts.GetRandomFeed(app.ctx)
+	posts, err := app.feed.Posts.GetRandomFeed(app.ctx, 20)
 	if err != nil {
 		log.Fatal(err)
 		return

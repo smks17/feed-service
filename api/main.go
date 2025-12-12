@@ -26,7 +26,7 @@ func main() {
 	if err != nil {
 		os.Exit(1)
 	}
-	defer db.Close(ctx)
+	defer db.Close()
 
 	rdb := cache.NewRedisClient(
 		fmt.Sprintf("%s:%d", config.redis.addr, config.redis.port),

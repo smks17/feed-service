@@ -5,10 +5,9 @@ import (
 	"errors"
 	"log"
 	"math/rand"
-	"sync"
 	"time"
 
-	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgxpool"
 )
 
 type Post struct {
@@ -19,7 +18,7 @@ type Post struct {
 }
 
 type PostStore struct {
-	db *pgx.Conn
+	db *pgxpool.Pool
 }
 
 func (ps *PostStore) GetHomeFeed(ctx context.Context, userId uint32) ([]Post, error) {
@@ -28,11 +27,11 @@ func (ps *PostStore) GetHomeFeed(ctx context.Context, userId uint32) ([]Post, er
         FROM posts_post p
         JOIN interactions_followlinks f
           ON f.following_id = p.author_id
-        WHERE f.follower_id = ? AND p.created_at >= NOW() - INTERVAL '3 days'
+        WHERE f.follower_id = $1 AND p.created_at >= NOW() - INTERVAL '3 days'
         ORDER BY p.created_at DESC;
     `
 
-	rows, err := ps.db.Query(ctx, query, userId, userId)
+	rows, err := ps.db.Query(ctx, query, userId)
 	if err != nil {
 		log.Printf("Error in get feeds of user %d: %v", userId, err)
 		return nil, err
@@ -87,18 +86,21 @@ func (ps *PostStore) GetPopularFeed(ctx context.Context) ([]Post, error) {
 	return posts, nil
 }
 
-func (ps *PostStore) GetRandomFeed(ctx context.Context) ([]Post, error) {
+func (ps *PostStore) GetRandomFeed(ctx context.Context, limit int) ([]Post, error) {
 	query := `
-		SELECT p.id, p.content, p.created_at, p.author_id
-		FROM posts_post AS p
-		WHERE p.created_at >= NOW() - INTERVAL '3 days'
-		ORDER BY random()
-		ORDER BY p.created_at DESC LIMIT 20;
+		SELECT * FROM (
+			SELECT p.id, p.content, p.created_at, p.author_id
+			FROM posts_post AS p
+			WHERE p.created_at >= NOW() - INTERVAL '3 days'
+			ORDER BY random()
+			LIMIT $1
+		) AS sub
+		ORDER BY created_at DESC;
 	`
 
-	rows, err := ps.db.Query(ctx, query)
+	rows, err := ps.db.Query(ctx, query, limit)
 	if err != nil {
-		log.Printf("Error in get popular feed: %v", err)
+		log.Printf("Error in get random feed: %v", err)
 		return nil, err
 	}
 	defer rows.Close()
@@ -119,49 +121,90 @@ func (ps *PostStore) GetRandomFeed(ctx context.Context) ([]Post, error) {
 }
 
 func pickRandom[T any](list []T, n int) []T {
-	shuffled := make([]T, len(list))
+	shuffled := append([]T(nil), list...)
 	rand.Shuffle(len(shuffled), func(i, j int) {
 		shuffled[i], shuffled[j] = shuffled[j], shuffled[i]
 	})
-	return shuffled[:n]
+	if len(shuffled) > n {
+		return shuffled[:n]
+	}
+	return shuffled
+}
+
+type postsResult struct {
+	posts []Post
+	err   error
 }
 
 func (ps *PostStore) GetExploreFeed(ctx context.Context, userId uint32, getPopularFeedFromCache feedCacheType) ([]Post, error) {
 	var posts []Post
 
-	var homePosts, popularPosts, randomPosts []Post
-	var err1, err2, err3 error
+	localCtx := context.Context(ctx)
 
-	var wg sync.WaitGroup
-	wg.Add(3)
+	homeCh := make(chan postsResult, 1)
+	popularCh := make(chan postsResult, 1)
+	randomCh := make(chan postsResult, 1)
 
 	go func() {
-		defer wg.Done()
-		homePosts, err1 = ps.GetHomeFeed(ctx, userId)
-		homePosts = pickRandom(homePosts, 5)
+		p, err := ps.GetHomeFeed(localCtx, userId)
+		if err == nil {
+			p = pickRandom(p, 5)
+		}
+		homeCh <- postsResult{posts: p, err: err}
 	}()
 
 	go func() {
-		defer wg.Done()
-		popularPosts, err2 = getPopularFeedFromCache(ctx)
-		homePosts = pickRandom(homePosts, 10)
+		p, err := getPopularFeedFromCache(localCtx)
+		if err == nil {
+			p = pickRandom(p, 10)
+		}
+		popularCh <- postsResult{posts: p, err: err}
 	}()
 
 	go func() {
-		defer wg.Done()
-		randomPosts, err3 = ps.GetRandomFeed(ctx)
-		homePosts = pickRandom(homePosts, 20)
+		p, err := ps.GetRandomFeed(localCtx, 20)
+		randomCh <- postsResult{posts: p, err: err}
 	}()
 
-	wg.Wait()
+	// collect
+	var (
+		homeRes    postsResult
+		popularRes postsResult
+		randomRes  postsResult
+	)
 
-	if err1 != nil || err2 != nil || err3 != nil {
-		return nil, errors.Join(err1, err2, err3)
+	// wait for all three (with ctx cancel if you want early cancel)
+	for i := 0; i < 3; i++ {
+		select {
+		case r := <-homeCh:
+			homeRes = r
+		case r := <-popularCh:
+			popularRes = r
+		case r := <-randomCh:
+			randomRes = r
+		case <-ctx.Done():
+			return nil, ctx.Err()
+		}
+	}
+	// aggregate errors (only non-nil ones)
+	var errs []error
+	if homeRes.err != nil {
+		errs = append(errs, homeRes.err)
+	}
+	if popularRes.err != nil {
+		errs = append(errs, popularRes.err)
+	}
+	if randomRes.err != nil {
+		errs = append(errs, randomRes.err)
+	}
+	if len(errs) > 0 {
+		return nil, errors.Join(errs...)
 	}
 
-	posts = append(posts, homePosts...)
-	posts = append(posts, popularPosts...)
-	posts = append(posts, randomPosts...)
+	// build final list
+	posts = append(posts, homeRes.posts...)
+	posts = append(posts, popularRes.posts...)
+	posts = append(posts, randomRes.posts...)
 
 	return posts, nil
 }
