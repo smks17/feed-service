@@ -18,7 +18,7 @@ func GetInt(key string, defaultValue int) int {
 	if ok {
 		valueInt, err := strconv.Atoi(value)
 		if err != nil {
-			panic(err)
+			panic(err) // expected developer provide suitable config
 		}
 		return valueInt
 	}
