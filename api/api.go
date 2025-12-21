@@ -98,8 +98,8 @@ func (app *APP) run(r *chi.Mux) error {
 	return nil
 }
 
-func (app *APP) UpdatePopularFeedCache() {
-	if err := app.updatePopularFeed(); err != nil {
+func (app *APP) UpdatePopularFeedCache(ctx context.Context) {
+	if err := app.updatePopularFeed(ctx); err != nil {
 		log.Println("Error updating popular feed:", err)
 	}
 
@@ -109,7 +109,7 @@ func (app *APP) UpdatePopularFeedCache() {
 	for {
 		select {
 		case <-ticker.C:
-			if err := app.updatePopularFeed(); err != nil {
+			if err := app.updatePopularFeed(ctx); err != nil {
 				log.Println("Error updating popular feed:", err)
 			}
 		case <-app.ctx.Done():
@@ -119,12 +119,15 @@ func (app *APP) UpdatePopularFeedCache() {
 	}
 }
 
-func (app *APP) updatePopularFeed() error {
-	dbPosts, err := app.feed.Posts.GetPopularFeed(app.ctx)
+func (app *APP) updatePopularFeed(parentCtx context.Context) error {
+	ctx, cancel := context.WithTimeout(parentCtx, 5*time.Second)
+	defer cancel()
+
+	dbPosts, err := app.feed.Posts.GetPopularFeed(ctx)
 	if err != nil {
 		return err
 	}
-	err = app.feedCache.PopularFeed.Set(app.ctx, dbPosts)
+	err = app.feedCache.PopularFeed.Set(ctx, dbPosts)
 	if err != nil {
 		return err
 	}
@@ -146,7 +149,8 @@ func (app *APP) getHomePostHandler(w http.ResponseWriter, r *http.Request) {
 
 	var posts []feed.Post
 
-	cachePosts, err := app.feedCache.HomeFeed.Get(app.ctx, uint32(userID))
+	ctx := r.Context()
+	cachePosts, err := app.feedCache.HomeFeed.Get(ctx, uint32(userID))
 	if err != nil {
 		app.internalServerError(w, r, fmt.Errorf("error in get feeds of user %d from cache: %v", userID, err))
 		return
@@ -154,16 +158,19 @@ func (app *APP) getHomePostHandler(w http.ResponseWriter, r *http.Request) {
 		posts = cachePosts
 		log.Println("Hit cache for for user ", userID)
 	} else {
-		dbPosts, err := app.feed.Posts.GetHomeFeed(app.ctx, uint32(userID))
+		dbPosts, err := app.feed.Posts.GetHomeFeed(ctx, uint32(userID))
 		if err != nil {
 			app.internalServerError(w, r, err)
 			return
 		}
 		// set cache in background
 		go func() {
-			err = app.feedCache.HomeFeed.Set(app.ctx, uint32(userID), dbPosts)
+			ctx, cancel := context.WithTimeout(app.ctx, 5*time.Second)
+			defer cancel()
+
+			err := app.feedCache.HomeFeed.Set(ctx, uint32(userID), dbPosts)
 			if err != nil {
-				log.Fatal("error in set feeds of user %d from cache: %v", userID, err)
+				log.Println("error in set feeds of user ", userID, " from cache: ", err)
 				return
 			}
 			log.Println("Set from cache for user ", userID)
@@ -187,8 +194,9 @@ func (app *APP) getExplorePostHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var posts []feed.Post
+	ctx := r.Context()
 
-	cachePosts, err := app.feedCache.ExploreFeed.Get(app.ctx, uint32(userID))
+	cachePosts, err := app.feedCache.ExploreFeed.Get(ctx, uint32(userID))
 	if err != nil {
 		app.internalServerError(w, r, fmt.Errorf("error in get feeds of user %d from cache: %v", userID, err))
 		return
@@ -196,7 +204,7 @@ func (app *APP) getExplorePostHandler(w http.ResponseWriter, r *http.Request) {
 		posts = cachePosts
 		log.Println("Hit cache for for user ", userID)
 	} else {
-		dbPosts, err := app.feed.Posts.GetExploreFeed(app.ctx, uint32(userID), app.feedCache.PopularFeed.Get)
+		dbPosts, err := app.feed.Posts.GetExploreFeed(ctx, uint32(userID), app.feedCache.PopularFeed.Get)
 		if err != nil {
 			app.internalServerError(w, r, err)
 			return
@@ -205,7 +213,7 @@ func (app *APP) getExplorePostHandler(w http.ResponseWriter, r *http.Request) {
 		go func() {
 			err = app.feedCache.ExploreFeed.Set(app.ctx, uint32(userID), dbPosts)
 			if err != nil {
-				log.Fatal("error in set feeds of user %d from cache: %v", userID, err)
+				log.Println("error in set feeds of user", userID, "from cache: ", err)
 				return
 			}
 			log.Println("Set from cache for user ", userID)
@@ -222,7 +230,9 @@ func (app *APP) getExplorePostHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func (app *APP) getPopularPostHandler(w http.ResponseWriter, r *http.Request) {
-	cachePosts, err := app.feedCache.PopularFeed.Get(app.ctx)
+	ctx := r.Context()
+
+	cachePosts, err := app.feedCache.PopularFeed.Get(ctx)
 	// previously we cached popular feed periodically in background
 	if err != nil {
 		app.internalServerError(w, r, err)
@@ -240,7 +250,9 @@ func (app *APP) getPopularPostHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func (app *APP) getRandomPostHandler(w http.ResponseWriter, r *http.Request) {
-	posts, err := app.feed.Posts.GetRandomFeed(app.ctx, 20)
+	ctx := r.Context()
+
+	posts, err := app.feed.Posts.GetRandomFeed(ctx, 20)
 	if err != nil {
 		app.internalServerError(w, r, err)
 		return
