@@ -67,6 +67,7 @@ func (app *APP) mount() *chi.Mux {
 	route.Use(middleware.Logger)
 	route.Use(middleware.Timeout(10 * time.Second))
 	route.Use(middleware.Recoverer)
+	route.Use(InternalAuth)
 
 	route.Route("/feed", func(r chi.Router) {
 		r.Route("/home", func(r chi.Router) {

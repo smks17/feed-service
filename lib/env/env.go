@@ -1,6 +1,7 @@
 package env
 
 import (
+	"fmt"
 	"os"
 	"strconv"
 )
@@ -11,6 +12,14 @@ func GetEnv(key string, defaultValue string) string {
 		return value
 	}
 	return defaultValue
+}
+
+func CheckEnv(key string) (string, error) {
+	value, ok := os.LookupEnv(key)
+	if ok {
+		return value, nil
+	}
+	return "", fmt.Errorf("can not found %s", key)
 }
 
 func GetInt(key string, defaultValue int) int {
