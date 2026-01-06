@@ -212,7 +212,10 @@ func (app *APP) getExplorePostHandler(w http.ResponseWriter, r *http.Request) {
 		}
 		// set cache in background
 		go func() {
-			err = app.feedCache.ExploreFeed.Set(app.ctx, uint32(userID), dbPosts)
+			ctx, cancel := context.WithTimeout(app.ctx, 5*time.Second)
+			defer cancel()
+
+			err = app.feedCache.ExploreFeed.Set(ctx, uint32(userID), dbPosts)
 			if err != nil {
 				log.Println("error in set feeds of user", userID, "from cache: ", err)
 				return
