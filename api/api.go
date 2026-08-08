@@ -13,12 +13,13 @@ import (
 	"github.com/smks17/feed-service/lib/env"
 	"github.com/smks17/feed-service/lib/feed"
 
-	"github.com/go-chi/chi/middleware"
 	"github.com/go-chi/chi/v5"
+	"github.com/go-chi/chi/v5/middleware"
 )
 
 type APPConfig struct {
 	addr  string
+	token string
 	db    DBConfig
 	redis RedisConfig
 }
@@ -35,8 +36,13 @@ type RedisConfig struct {
 }
 
 func setConfig() APPConfig {
+	token, err := env.CheckEnv("FEED_SERVICE_TOKEN")
+	if err != nil {
+		log.Fatal("FEED_SERVICE_TOKEN is not set")
+	}
 	return APPConfig{
-		addr: env.GetEnv("ADDR", "127.0.0.1:8080"),
+		addr:  env.GetEnv("ADDR", "127.0.0.1:8080"),
+		token: token,
 		db: DBConfig{
 			addr: env.GetEnv("POSTGRES_URL", "127.0.0.1:5432"),
 		},
@@ -67,7 +73,7 @@ func (app *APP) mount() *chi.Mux {
 	route.Use(middleware.Logger)
 	route.Use(middleware.Timeout(10 * time.Second))
 	route.Use(middleware.Recoverer)
-	route.Use(InternalAuth)
+	route.Use(InternalAuth(app.config.token))
 
 	route.Route("/feed", func(r chi.Router) {
 		r.Route("/home", func(r chi.Router) {
