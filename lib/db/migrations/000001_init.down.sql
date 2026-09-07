@@ -1,0 +1,4 @@
+DROP TABLE IF EXISTS processed_events;
+DROP TABLE IF EXISTS likes;
+DROP TABLE IF EXISTS follows;
+DROP TABLE IF EXISTS posts;

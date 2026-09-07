@@ -24,8 +24,8 @@ type PostStore struct {
 func (ps *PostStore) GetHomeFeed(ctx context.Context, userId uint32) ([]Post, error) {
 	query := `
         SELECT p.id, p.content, p.created_at, p.author_id
-        FROM posts_post p
-        JOIN interactions_followlinks f
+        FROM posts p
+        JOIN follows f
           ON f.following_id = p.author_id
         WHERE f.follower_id = $1 AND p.created_at >= NOW() - INTERVAL '3 days'
         ORDER BY p.created_at DESC;
@@ -56,12 +56,12 @@ func (ps *PostStore) GetHomeFeed(ctx context.Context, userId uint32) ([]Post, er
 func (ps *PostStore) GetPopularFeed(ctx context.Context) ([]Post, error) {
 	query := `
 		SELECT p.id, p.content, p.created_at, p.author_id
-		FROM posts_post AS p
-		LEFT JOIN interactions_like AS l
+		FROM posts AS p
+		LEFT JOIN likes AS l
 			ON l.post_id = p.id
 		WHERE p.created_at >= NOW() - INTERVAL '3 days'
 		GROUP BY p.id, p.content, p.created_at, p.author_id
-		ORDER BY COUNT(l.id) DESC LIMIT 20;
+		ORDER BY COUNT(l.user_id) DESC LIMIT 20;
 	`
 
 	rows, err := ps.db.Query(ctx, query)
@@ -90,7 +90,7 @@ func (ps *PostStore) GetRandomFeed(ctx context.Context, limit int) ([]Post, erro
 	query := `
 		SELECT * FROM (
 			SELECT p.id, p.content, p.created_at, p.author_id
-			FROM posts_post AS p
+			FROM posts AS p
 			WHERE p.created_at >= NOW() - INTERVAL '3 days'
 			ORDER BY random()
 			LIMIT $1

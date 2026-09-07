@@ -40,11 +40,15 @@ func setConfig() APPConfig {
 	if err != nil {
 		log.Fatal("FEED_SERVICE_TOKEN is not set")
 	}
+	dbURL, err := env.CheckEnv("FEED_POSTGRES_URL")
+	if err != nil {
+		log.Fatal("FEED_POSTGRES_URL is not set")
+	}
 	return APPConfig{
 		addr:  env.GetEnv("ADDR", "127.0.0.1:8080"),
 		token: token,
 		db: DBConfig{
-			addr: env.GetEnv("POSTGRES_URL", "127.0.0.1:5432"),
+			addr: dbURL,
 		},
 		redis: RedisConfig{
 			addr:     env.GetEnv("REDIS_HOSTNAME", "127.0.0.1"),
